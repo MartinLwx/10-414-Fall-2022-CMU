@@ -1,6 +1,7 @@
 import struct
 import numpy as np
 import gzip
+
 try:
     from simple_ml_ext import *
 except:
@@ -8,7 +9,7 @@ except:
 
 
 def add(x, y):
-    """ A trivial 'add' function you should implement to get used to the
+    """A trivial 'add' function you should implement to get used to the
     autograder and submission system.  The solution to this problem is in the
     the homework notebook.
 
@@ -20,12 +21,12 @@ def add(x, y):
         Sum of x + y
     """
     ### BEGIN YOUR CODE
-    pass
+    return x + y
     ### END YOUR CODE
 
 
 def parse_mnist(image_filename, label_filename):
-    """ Read an images and labels file in MNIST format.  See this page:
+    """Read an images and labels file in MNIST format.  See this page:
     http://yann.lecun.com/exdb/mnist/ for a description of the file format.
 
     Args:
@@ -34,12 +35,12 @@ def parse_mnist(image_filename, label_filename):
 
     Returns:
         Tuple (X,y):
-            X (numpy.ndarray[np.float32]): 2D numpy array containing the loaded 
-                data.  The dimensionality of the data should be 
-                (num_examples x input_dim) where 'input_dim' is the full 
-                dimension of the data, e.g., since MNIST images are 28x28, it 
-                will be 784.  Values should be of type np.float32, and the data 
-                should be normalized to have a minimum value of 0.0 and a 
+            X (numpy.ndarray[np.float32]): 2D numpy array containing the loaded
+                data.  The dimensionality of the data should be
+                (num_examples x input_dim) where 'input_dim' is the full
+                dimension of the data, e.g., since MNIST images are 28x28, it
+                will be 784.  Values should be of type np.float32, and the data
+                should be normalized to have a minimum value of 0.0 and a
                 maximum value of 1.0. The normalization should be applied uniformly
                 across the whole dataset, _not_ individual images.
 
@@ -48,12 +49,30 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR CODE
-    pass
+    # Processing images
+    with gzip.open(image_filename, "rb") as zip_file:
+        raw_data = zip_file.read()
+    magic_number, image_cnt, row, cols = struct.unpack(">iiii", raw_data[:16])
+    # 28 * 28 = 784, skip the first 16 bytes
+    images = [
+        struct.unpack(">" + "B" * 784, raw_data[i * 784 + 16 : (i + 1) * 784 + 16])
+        for i in range(image_cnt)
+    ]
+    X = np.array(images, dtype=np.float32) / 255  # normalization
+
+    # Processing labels
+    with gzip.open(label_filename, "rb") as zip_file:
+        raw_data = zip_file.read()
+    magic_number, items = struct.unpack(">ii", raw_data[:8])
+    labels = struct.unpack(">" + "B" * items, raw_data[8:])
+    y = np.array(labels, dtype=np.uint8)
+
+    return X, y
     ### END YOUR CODE
 
 
 def softmax_loss(Z, y):
-    """ Return softmax loss.  Note that for the purposes of this assignment,
+    """Return softmax loss.  Note that for the purposes of this assignment,
     you don't need to worry about "nicely" scaling the numerical properties
     of the log-sum-exp computation, but can just compute this directly.
 
@@ -68,12 +87,18 @@ def softmax_loss(Z, y):
         Average softmax loss over the sample.
     """
     ### BEGIN YOUR CODE
-    pass
+    batch_size, num_classes = Z.shape
+    labels = np.eye(num_classes)[y]
+
+    exps = np.exp(Z)
+    probs = exps / exps.sum(axis=1).reshape(batch_size, -1)
+
+    return np.mean((-np.log(probs) * labels).sum(-1))
     ### END YOUR CODE
 
 
-def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
-    """ Run a single epoch of SGD for softmax regression on the data, using
+def softmax_regression_epoch(X, y, theta, lr=0.1, batch=100):
+    """Run a single epoch of SGD for softmax regression on the data, using
     the step size lr and specified batch size.  This function should modify the
     theta matrix in place, and you should iterate through batches in X _without_
     randomizing the order.
@@ -91,12 +116,24 @@ def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    _, num_classes = theta.shape
+    I_y = np.eye(num_classes)[y]
+    for i in range(len(X) // batch):
+        batch_X, batch_y = (
+            X[i * batch : (i + 1) * batch],
+            I_y[i * batch : (i + 1) * batch],
+        )
+        logits = batch_X @ theta
+        exps = np.exp(logits)
+        batch_Z = exps / exps.sum(axis=1).reshape(batch, -1)
+        grad = 1 / batch * batch_X.T @ (batch_Z - batch_y)
+
+        theta -= lr * grad
     ### END YOUR CODE
 
 
-def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
-    """ Run a single epoch of SGD for a two-layer neural network defined by the
+def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
+    """Run a single epoch of SGD for a two-layer neural network defined by the
     weights W1 and W2 (with no bias terms):
         logits = ReLU(X * W1) * W2
     The function should use the step size lr, and the specified batch size (and
@@ -117,23 +154,51 @@ def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
     Returns:
         None
     """
-    ### BEGIN YOUR CODE
-    pass
-    ### END YOUR CODE
 
+    ### BEGIN YOUR CODE
+    def ReLU(x: np.ndarray) -> np.ndarray:
+        return x * (x > 0)
+
+    _, num_classes = W2.shape
+    I_y = np.eye(num_classes)[y]
+    for i in range(len(X) // batch):
+        batch_X, batch_y = (
+            X[i * batch : (i + 1) * batch],
+            I_y[i * batch : (i + 1) * batch],
+        )  # (batch_size, input_dim), (batch_size, 1)
+
+        # forward
+        batch_z1 = ReLU(batch_X @ W1)  # (batch_size, hidden_dim)
+
+        # backward
+        logits = batch_z1 @ W2  # (batch_size, num_classes)
+        exps = np.exp(logits)
+        batch_g2 = (
+            exps / exps.sum(1).reshape(batch, -1) - batch_y
+        )  # (batch_size, num_classes)
+
+        batch_g1 = (batch_z1 > 0) * (batch_g2 @ W2.T)  # (batch_size, hidden_dim)
+
+        w1_grad = 1 / batch * batch_X.T @ batch_g1  # (input_dim, hidden_dim)
+        w2_grad = 1 / batch * batch_z1.T @ batch_g2  # (hidden_dim, num_classes)
+
+        W1 -= lr * w1_grad
+        W2 -= lr * w2_grad
+
+    ### END YOUR CODE
 
 
 ### CODE BELOW IS FOR ILLUSTRATION, YOU DO NOT NEED TO EDIT
 
-def loss_err(h,y):
-    """ Helper funciton to compute both loss and error"""
-    return softmax_loss(h,y), np.mean(h.argmax(axis=1) != y)
+
+def loss_err(h, y):
+    """Helper funciton to compute both loss and error"""
+    return softmax_loss(h, y), np.mean(h.argmax(axis=1) != y)
 
 
-def train_softmax(X_tr, y_tr, X_te, y_te, epochs=10, lr=0.5, batch=100,
-                  cpp=False):
-    """ Example function to fully train a softmax regression classifier """
-    theta = np.zeros((X_tr.shape[1], y_tr.max()+1), dtype=np.float32)
+def train_softmax(X_tr, y_tr, X_te, y_te, epochs=10, lr=0.5, batch=100, cpp=False):
+    """Example function to fully train a softmax regression classifier"""
+    theta = np.zeros((X_tr.shape[1], y_tr.max() + 1), dtype=np.float32)
     print("| Epoch | Train Loss | Train Err | Test Loss | Test Err |")
     for epoch in range(epochs):
         if not cpp:
@@ -142,13 +207,15 @@ def train_softmax(X_tr, y_tr, X_te, y_te, epochs=10, lr=0.5, batch=100,
             softmax_regression_epoch_cpp(X_tr, y_tr, theta, lr=lr, batch=batch)
         train_loss, train_err = loss_err(X_tr @ theta, y_tr)
         test_loss, test_err = loss_err(X_te @ theta, y_te)
-        print("|  {:>4} |    {:.5f} |   {:.5f} |   {:.5f} |  {:.5f} |"\
-              .format(epoch, train_loss, train_err, test_loss, test_err))
+        print(
+            "|  {:>4} |    {:.5f} |   {:.5f} |   {:.5f} |  {:.5f} |".format(
+                epoch, train_loss, train_err, test_loss, test_err
+            )
+        )
 
 
-def train_nn(X_tr, y_tr, X_te, y_te, hidden_dim = 500,
-             epochs=10, lr=0.5, batch=100):
-    """ Example function to train two layer neural network """
+def train_nn(X_tr, y_tr, X_te, y_te, hidden_dim=500, epochs=10, lr=0.5, batch=100):
+    """Example function to train two layer neural network"""
     n, k = X_tr.shape[1], y_tr.max() + 1
     np.random.seed(0)
     W1 = np.random.randn(n, hidden_dim).astype(np.float32) / np.sqrt(hidden_dim)
@@ -157,21 +224,25 @@ def train_nn(X_tr, y_tr, X_te, y_te, hidden_dim = 500,
     print("| Epoch | Train Loss | Train Err | Test Loss | Test Err |")
     for epoch in range(epochs):
         nn_epoch(X_tr, y_tr, W1, W2, lr=lr, batch=batch)
-        train_loss, train_err = loss_err(np.maximum(X_tr@W1,0)@W2, y_tr)
-        test_loss, test_err = loss_err(np.maximum(X_te@W1,0)@W2, y_te)
-        print("|  {:>4} |    {:.5f} |   {:.5f} |   {:.5f} |  {:.5f} |"\
-              .format(epoch, train_loss, train_err, test_loss, test_err))
-
+        train_loss, train_err = loss_err(np.maximum(X_tr @ W1, 0) @ W2, y_tr)
+        test_loss, test_err = loss_err(np.maximum(X_te @ W1, 0) @ W2, y_te)
+        print(
+            "|  {:>4} |    {:.5f} |   {:.5f} |   {:.5f} |  {:.5f} |".format(
+                epoch, train_loss, train_err, test_loss, test_err
+            )
+        )
 
 
 if __name__ == "__main__":
-    X_tr, y_tr = parse_mnist("data/train-images-idx3-ubyte.gz",
-                             "data/train-labels-idx1-ubyte.gz")
-    X_te, y_te = parse_mnist("data/t10k-images-idx3-ubyte.gz",
-                             "data/t10k-labels-idx1-ubyte.gz")
+    X_tr, y_tr = parse_mnist(
+        "data/train-images-idx3-ubyte.gz", "data/train-labels-idx1-ubyte.gz"
+    )
+    X_te, y_te = parse_mnist(
+        "data/t10k-images-idx3-ubyte.gz", "data/t10k-labels-idx1-ubyte.gz"
+    )
 
     print("Training softmax regression")
-    train_softmax(X_tr, y_tr, X_te, y_te, epochs=10, lr = 0.1)
+    train_softmax(X_tr, y_tr, X_te, y_te, epochs=10, lr=0.1)
 
     print("\nTraining two layer neural network w/ 100 hidden units")
-    train_nn(X_tr, y_tr, X_te, y_te, hidden_dim=100, epochs=20, lr = 0.2)
+    train_nn(X_tr, y_tr, X_te, y_te, hidden_dim=100, epochs=20, lr=0.2)

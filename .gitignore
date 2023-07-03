@@ -1,1 +1,4 @@
 ppt
+__pycache__
+*.so
+.ipynb_checkpoints
