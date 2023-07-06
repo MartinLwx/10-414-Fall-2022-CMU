@@ -1,6 +1,6 @@
 """Core data structures."""
 import needle
-from typing import List, Optional, NamedTuple, Tuple, Union
+from typing import List, Optional, NamedTuple, Tuple, Union, Dict
 from collections import namedtuple
 import numpy
 
@@ -11,6 +11,7 @@ TENSOR_COUNTER = 0
 # NOTE: we will import numpy as the array_api
 # as the backend for our computations, this line will change in later homeworks
 import numpy as array_api
+
 NDArray = numpy.ndarray
 
 
@@ -33,9 +34,11 @@ class CPUDevice(Device):
     def enabled(self):
         return True
 
+
 def cpu():
     """Return cpu device"""
     return CPUDevice()
+
 
 def all_devices():
     """return a list of all available devices"""
@@ -86,7 +89,7 @@ class Op:
         raise NotImplementedError()
 
     def gradient_as_tuple(self, out_grad: "Value", node: "Value") -> Tuple["Value"]:
-        """ Convenience method to always return a tuple from gradient call"""
+        """Convenience method to always return a tuple from gradient call"""
         output = self.gradient(out_grad, node)
         if isinstance(output, tuple):
             return output
@@ -97,7 +100,7 @@ class Op:
 
 
 class TensorOp(Op):
-    """ Op class specialized to output tensors, will be alternate subclasses for other structures """
+    """Op class specialized to output tensors, will be alternate subclasses for other structures"""
 
     def __call__(self, *args):
         return Tensor.make_from_op(self, args)
@@ -146,7 +149,7 @@ class Value:
         *,
         num_outputs: int = 1,
         cached_data: List[object] = None,
-        requires_grad: Optional[bool] = None
+        requires_grad: Optional[bool] = None,
     ):
         global TENSOR_COUNTER
         TENSOR_COUNTER += 1
@@ -224,7 +227,7 @@ class Tensor(Value):
         device: Optional[Device] = None,
         dtype=None,
         requires_grad=True,
-        **kwargs
+        **kwargs,
     ):
         if isinstance(array, Tensor):
             if device is None:
@@ -389,6 +392,7 @@ def compute_gradient_of_variables(output_tensor, out_grad):
     """
     # a map from node to a list of gradient contributions from each output node
     node_to_output_grads_list: Dict[Tensor, List[Tensor]] = {}
+
     # Special note on initializing gradient of
     # We are really taking a derivative of the scalar reduce_sum(output_node)
     # instead of the vector output_node. But this is the common case for loss function.
@@ -398,7 +402,19 @@ def compute_gradient_of_variables(output_tensor, out_grad):
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
 
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    for node in reverse_topo_order:
+        # compute the adjoint
+        node.grad = sum(node_to_output_grads_list[node])
+
+        # get the partial adjoint value for all inputs
+        if node.op:
+            grads = node.op.gradient_as_tuple(node.grad, node)
+            for idx, input_of_node in enumerate(node.inputs):
+                # compute the partial adjoint
+                node_to_output_grads_list.setdefault(input_of_node, []).append(
+                    grads[idx]
+                )
+
     ### END YOUR SOLUTION
 
 
@@ -411,14 +427,22 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
     sort.
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    visited = set()
+    topo_order = []
+    topo_sort_dfs(node_list[0], visited, topo_order)
+
+    return topo_order
     ### END YOUR SOLUTION
 
 
 def topo_sort_dfs(node, visited, topo_order):
     """Post-order DFS"""
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    visited.add(node)
+    for input in node.inputs:
+        if input not in visited:
+            topo_sort_dfs(input, visited, topo_order)
+    topo_order.append(node)
     ### END YOUR SOLUTION
 
 
