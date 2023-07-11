@@ -25,7 +25,15 @@ class SGD(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        for p in self.params:
+            if p is None:
+                continue
+            # for some reason, p.grad.data.dtype is "float64", but we want "float32"
+            grad = ndl.Tensor(p.grad.data + self.weight_decay * p.data, dtype="float32")
+            self.u[p] = (
+                self.momentum * self.u.get(p, 0) + (1 - self.momentum) * grad.data
+            )
+            p.data -= self.lr * self.u[p]
         ### END YOUR SOLUTION
 
 
@@ -52,5 +60,18 @@ class Adam(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.t += 1
+        for p in self.params:
+            if p is None:
+                continue
+            # for some reason, p.grad.data.dtype is "float64", but we want "float32"
+            grad = p.grad.data + self.weight_decay * p.data
+            self.m[p] = self.beta1 * self.m.get(p, 0) + (1 - self.beta1) * grad.data
+            self.v[p] = self.beta2 * self.v.get(p, 0) + (1 - self.beta2) * (
+                grad.data**2
+            )
+            u_hat = self.m[p] / (1 - self.beta1**self.t)
+            v_hat = self.v[p] / (1 - self.beta2**self.t)
+
+            p.data -= self.lr * (u_hat / (v_hat**0.5 + self.eps))
         ### END YOUR SOLUTION
