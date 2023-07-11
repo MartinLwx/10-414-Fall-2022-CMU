@@ -193,13 +193,30 @@ class BroadcastTo(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        # size: shape after broadcast
-        # goal: original shape
-        # solution: for the axes which got broadcasted, we do summation along the axes
-        #           first reshape to (*origin_shape, -1) and do summation in the last axis
-        origin_shape = node.inputs[0].shape
+        # solution: we need to find out which axis are broadcasted, and do summation along these axis
+        input_shape = node.inputs[0].shape
+        output_shape = out_grad.shape
 
-        return summation(reshape(out_grad, (*origin_shape, -1)), -1)
+        # note: we need to figure out the shape before broadcasting, and we also need to make sure that
+        # len(input_shape) = len(output_shape). Then we will find which axis is equal to 1, which means
+        # we need to do summation along this axis
+        # e.g. [1, 5] --- broadcast_to --- [5, 5, 5]
+        #      1. create [1, 1, 5]
+        #      2. find which axis is equal to 1. (0, 1)
+        #      3. summation(output, (0, 1))
+        if len(input_shape) != len(output_shape):
+            shape_with_the_same_length = [1] * (
+                len(output_shape) - len(input_shape)
+            ) + list(input_shape)
+        else:
+            shape_with_the_same_length = input_shape
+
+        axes = []
+        for idx, val in enumerate(shape_with_the_same_length):
+            if val == 1:
+                axes.append(idx)
+
+        return summation(out_grad, tuple(axes)).reshape(input_shape)
         ### END YOUR SOLUTION
 
 
