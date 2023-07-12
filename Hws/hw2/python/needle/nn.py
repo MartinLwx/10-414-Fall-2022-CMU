@@ -138,6 +138,7 @@ class Sequential(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
+        # breakpoint()
         for module in self.modules:
             x = module(x)
 
@@ -176,27 +177,29 @@ class BatchNorm1d(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
+        # Note: to avoid promotion, we'd better use broadcast_to extensively
         if self.training:
             mean = x.sum(0) / x.shape[0]
-            # print(f"shape of mean: {mean.shape}, vs {x.shape}")
-            E_X = ops.broadcast_to(mean.reshape((1, -1)), x.shape)
-            # print(f"shape of E_X: {E_X.shape}")
             self.running_mean = (
                 1 - self.momentum
             ) * self.running_mean + self.momentum * mean.data
+            mean = ops.broadcast_to(mean.reshape((1, -1)), x.shape)
 
-            var = ((x - E_X) ** 2).sum(0) / x.shape[0]
-            # print(f"shape of var: {var.shape}, vs {x.shape}")
-            Var_X = ops.broadcast_to(var.reshape((1, -1)), x.shape)
-            # print(f"shape of Var_X: {Var_X.shape}")
+            var = ((x - mean) ** 2).sum(0) / x.shape[0]
             self.running_var = (
                 1 - self.momentum
             ) * self.running_var + self.momentum * var.data
-
-            return self.weight * (x - E_X) / ((Var_X + self.eps) ** (1 / 2)) + self.bias
+            var = ops.broadcast_to(var.reshape((1, -1)), x.shape)
 
         else:
-            return (x - self.running_mean) / ((self.running_var + self.eps) ** (1 / 2))
+            mean = ops.broadcast_to(self.running_mean.reshape((-1, self.dim)), x.shape)
+            var = ops.broadcast_to(self.running_var.reshape((-1, self.dim)), x.shape)
+        weight = ops.broadcast_to(self.weight.reshape((-1, self.dim)), x.shape)
+        bias = ops.broadcast_to(self.bias.reshape((-1, self.dim)), x.shape)
+
+        equation = (x - mean) / (var + self.eps) ** (1 / 2)
+
+        return weight * equation + bias
         ### END YOUR SOLUTION
 
 
@@ -220,6 +223,7 @@ class LayerNorm1d(Module):
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
         # size: x = (N, d)
+        # Note: to avoid promotion, we'd better use broadcast_to extensively
         E_X = x.sum(-1) / x.shape[1]
         E_X = ops.broadcast_to(E_X.reshape((x.shape[0], -1)), x.shape)
 
@@ -227,7 +231,10 @@ class LayerNorm1d(Module):
             ((x - E_X) ** 2 / x.shape[1]).sum(-1).reshape((x.shape[0], -1)), x.shape
         )
 
-        return self.weight * (x - E_X) / ((Var_X + self.eps) ** (1 / 2)) + self.bias
+        weight = ops.broadcast_to(self.weight.reshape((1, self.dim)), x.shape)
+        bias = ops.broadcast_to(self.bias.reshape((1, self.dim)), x.shape)
+
+        return weight * (x - E_X) / ((Var_X + self.eps) ** (1 / 2)) + bias
         ### END YOUR SOLUTION
 
 
@@ -239,15 +246,12 @@ class Dropout(Module):
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
         # multiply each axis
-        target_length = 1
-        for i in x.shape:
-            target_length *= i
-        rand_mask = init.randb(target_length, p=self.p).reshape(x.shape)
-
         if not self.training:
             return x
         else:
-            return x * rand_mask * (1 / (1 - self.p))
+            rand_mask = init.randb(*x.shape, p=1 - self.p) / (1 - self.p)
+
+            return x * rand_mask
         ### END YOUR SOLUTION
 
 
