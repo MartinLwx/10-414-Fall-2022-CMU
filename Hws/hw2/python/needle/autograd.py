@@ -432,7 +432,15 @@ def compute_gradient_of_variables(output_tensor, out_grad):
     ### BEGIN YOUR SOLUTION
     for node in reverse_topo_order:
         # compute the adjoint
-        node.grad = sum(node_to_output_grads_list[node])
+        # the sum() function implicit set start=0, which may caused the result_type changed
+        # see: https://numpy.org/doc/stable/reference/generated/numpy.result_type.html#numpy.result_type
+        cur_sum = None
+        for t in node_to_output_grads_list[node]:
+            if cur_sum is None:
+                cur_sum = t
+            else:
+                cur_sum += t
+        node.grad = cur_sum
 
         # get the partial adjoint value for all inputs
         if node.op:

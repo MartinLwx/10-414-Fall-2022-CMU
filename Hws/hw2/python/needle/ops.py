@@ -87,7 +87,9 @@ class AddScalar(TensorOp):
         self.scalar = scalar
 
     def compute(self, a: NDArray):
-        return a + self.scalar
+        ret = array_api.float32(a + self.scalar)
+        assert ret.dtype == array_api.float32
+        return ret
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         return out_grad
@@ -115,7 +117,8 @@ class MulScalar(TensorOp):
         self.scalar = scalar
 
     def compute(self, a: NDArray):
-        return a * self.scalar
+        ret = array_api.float32(a * self.scalar)
+        return ret
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         return (out_grad * self.scalar,)
@@ -133,7 +136,7 @@ class PowerScalar(TensorOp):
 
     def compute(self, a: NDArray) -> NDArray:
         ### BEGIN YOUR SOLUTION
-        return a**self.scalar
+        return array_api.float32(a**self.scalar)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -172,7 +175,9 @@ class DivScalar(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return a / self.scalar
+        # see https://stackoverflow.com/questions/45949263/numpy-casting-float32-to-float64
+        v = a / self.scalar
+        return array_api.float32(v)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
