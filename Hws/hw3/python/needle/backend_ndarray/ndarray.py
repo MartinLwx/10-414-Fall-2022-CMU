@@ -313,9 +313,7 @@ class NDArray:
             if new != 1:
                 assert new == old
 
-        new_strides = np.array(
-            [np.prod(new_shape[i:]) for i in range(1, len(new_shape))] + [1]
-        )
+        new_strides = list(self.strides)
         # detect which position is 1
         for idx, pos in enumerate(new_strides):
             if self.shape[idx] == 1:
