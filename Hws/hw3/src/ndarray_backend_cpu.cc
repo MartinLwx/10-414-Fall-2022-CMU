@@ -77,7 +77,7 @@ void Compact(const AlignedArray &a, AlignedArray *out,
     for (int i = indices.size() - 1; i >= 0; i--) {
       if (indices[i] == shape[i]) {
         indices[i] = 0;
-        if (i != 0) {
+        if (i >= 1) {
           indices[i - 1]++;
         }
       } else {
@@ -119,7 +119,7 @@ void EwiseSetitem(const AlignedArray &a, AlignedArray *out,
     for (int i = indices.size() - 1; i >= 0; i--) {
       if (indices[i] == shape[i]) {
         indices[i] = 0;
-        if (i != 0) {
+        if (i >= 1) {
           indices[i - 1]++;
         }
       } else {
@@ -163,7 +163,7 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray *out,
     for (int i = indices.size() - 1; i >= 0; i--) {
       if (indices[i] == shape[i]) {
         indices[i] = 0;
-        if (i != 0) {
+        if (i >= 1) {
           indices[i - 1]++;
         }
       } else {
@@ -317,6 +317,15 @@ void Matmul(const AlignedArray &a, const AlignedArray &b, AlignedArray *out,
    */
 
   /// BEGIN YOUR SOLUTION
+  for (auto i = 0; i < m; i++) {
+    for (auto j = 0; j < p; j++) {
+      out->ptr[i * p + j] = 0;
+      for (auto k = 0; k < n; k++) {
+        // out[i][j] = a[i][k] * b[k][j];
+        out->ptr[i * p + j] += a.ptr[i * n + k] * b.ptr[k * p + j];
+      }
+    }
+  }
 
   /// END YOUR SOLUTION
 }
@@ -348,7 +357,13 @@ inline void AlignedDot(const float *__restrict__ a, const float *__restrict__ b,
   out = (float *)__builtin_assume_aligned(out, TILE * ELEM_SIZE);
 
   /// BEGIN YOUR SOLUTION
-
+  for (int i = 0; i < TILE; i++) {
+    for (int j = 0; j < TILE; j++) {
+      for (int k = 0; k < TILE; k++) {
+        out[i * TILE + j] += a[i * TILE + k] * b[k * TILE + j];
+      }
+    }
+  }
   /// END YOUR SOLUTION
 }
 
@@ -375,7 +390,19 @@ void MatmulTiled(const AlignedArray &a, const AlignedArray &b,
    *
    */
   /// BEGIN YOUR SOLUTION
-
+  Fill(out, 0);
+  for (int i = 0; i < m / TILE; i++) {
+    for (int j = 0; j < p / TILE; j++) {
+      // block[i][j]
+      scalar_t *block = out->ptr + TILE * TILE * (i * (p / TILE) + j);
+      for (int k = 0; k < n / TILE; k++) {
+        // A[i][k] && B[k][j]
+        scalar_t *A = a.ptr + TILE * TILE * (i * (n / TILE) + k);
+        scalar_t *B = b.ptr + TILE * TILE * (k * (p / TILE) + j);
+        AlignedDot(A, B, block);
+      }
+    }
+  }
   /// END YOUR SOLUTION
 }
 
@@ -390,6 +417,13 @@ void ReduceMax(const AlignedArray &a, AlignedArray *out, size_t reduce_size) {
    */
 
   /// BEGIN YOUR SOLUTION
+  for (int i = 0; i < out->size; i++) {
+    auto max_val = a.ptr[i * reduce_size];
+    for (int j = i * reduce_size; j < (i + 1) * reduce_size; j++) {
+      max_val = std::max(max_val, a.ptr[j]);
+    }
+    out->ptr[i] = max_val;
+  }
 
   /// END YOUR SOLUTION
 }
@@ -405,6 +439,13 @@ void ReduceSum(const AlignedArray &a, AlignedArray *out, size_t reduce_size) {
    */
 
   /// BEGIN YOUR SOLUTION
+  for (int i = 0; i < out->size; i++) {
+    auto sum{0.0f};
+    for (int j = i * reduce_size; j < (i + 1) * reduce_size; j++) {
+      sum += a.ptr[j];
+    }
+    out->ptr[i] = sum;
+  }
 
   /// END YOUR SOLUTION
 }
