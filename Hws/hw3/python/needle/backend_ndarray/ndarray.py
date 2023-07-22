@@ -242,13 +242,13 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        if np.prod(new_shape) != np.prod(self.shape) or not self.is_compact():
+        if prod(new_shape) != prod(self.shape) or not self.is_compact():
             raise ValueError()
 
         # compute the new strides array
         # e.g. (3, 4, 5)'s strides array is (20, 5, 1)
-        # solution: np.prod(self.strides[i:])
-        new_strides = [np.prod(new_shape[i:]) for i in range(1, len(new_shape))] + [1]
+        # solution: prod(self.strides[i:])
+        new_strides = [prod(new_shape[i:]) for i in range(1, len(new_shape))] + [1]
 
         return self.make(
             new_shape,
@@ -393,7 +393,11 @@ class NDArray:
         new_offset = self._offset
         for i, s in enumerate(idxs):
             new_offset += self.strides[i] * s.start
-            new_shape[i] = (s.stop - s.start) // s.step
+            # Note: we need to add s.step - 1 here
+            # slice(0, 7, 2) = [0, 2, 4, 6]
+            # if we use 7 // 2, we will get 3, that's not expected result
+            # see: https://stackoverflow.com/questions/36188429/retrieve-length-of-slice-from-slice-object-in-python
+            new_shape[i] = (s.stop - s.start + s.step - (1 if s.step > 0 else -1)) // s.step
             new_strides[i] *= s.step
 
         return self.make(
