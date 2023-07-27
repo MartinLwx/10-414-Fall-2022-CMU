@@ -413,7 +413,7 @@ def submit_rnn():
     if not ndl.cuda().enabled():
         print("You need a GPU to run some of these tests.")
 
-    for (device, batch_size, input_size, hidden_size) in itertools.product(
+    for device, batch_size, input_size, hidden_size in itertools.product(
         devices, TEST_BATCH_SIZES, TEST_INPUT_SIZES, TEST_HIDDEN_SIZES
     ):
         x = np.random.randn(batch_size, input_size).astype(np.float32)
@@ -455,7 +455,7 @@ def submit_lstm():
     devices = [ndl.cpu(), ndl.cuda()]
     if not ndl.cuda().enabled():
         print("You need a GPU to run some of these tests.")
-    for (device, batch_size, input_size, hidden_size) in itertools.product(
+    for device, batch_size, input_size, hidden_size in itertools.product(
         devices, TEST_BATCH_SIZES, TEST_INPUT_SIZES, TEST_HIDDEN_SIZES
     ):
         x = np.random.randn(batch_size, input_size).astype(np.float32)

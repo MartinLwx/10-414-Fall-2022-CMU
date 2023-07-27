@@ -5,6 +5,7 @@ import numpy as np
 from . import ndarray_backend_numpy
 from . import ndarray_backend_cpu
 
+
 # math.prod not in Python 3.7
 def prod(x):
     return reduce(operator.mul, x, 1)
@@ -246,7 +247,21 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if prod(new_shape) != prod(self.shape) or not self.is_compact():
+            raise ValueError()
+
+        # compute the new strides array
+        # e.g. (3, 4, 5)'s strides array is (20, 5, 1)
+        # solution: prod(self.strides[i:])
+        new_strides = [prod(new_shape[i:]) for i in range(1, len(new_shape))] + [1]
+
+        return self.make(
+            new_shape,
+            strides=tuple(new_strides),
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset,
+        )
         ### END YOUR SOLUTION
 
     def permute(self, new_axes):
@@ -271,7 +286,16 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_axes = np.array(new_axes)
+        new_shape = np.array(self.shape)[new_axes]
+        new_strides = np.array(self.strides)[new_axes]
+        return self.make(
+            tuple(new_shape),
+            strides=tuple(new_strides),
+            device=self.device,
+            handle=self._handle,
+            offset=self._offset,
+        )
         ### END YOUR SOLUTION
 
     def broadcast_to(self, new_shape):
@@ -294,7 +318,26 @@ class NDArray:
             point to the same memory as the original array.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        shape_with_the_same_length = (
+            tuple([1] * (len(new_shape) - len(self.shape))) + self.shape
+        )
+        for old, new in zip(shape_with_the_same_length, new_shape):
+            if old != 1:
+                assert new == old
+
+        new_strides = [0] * (len(new_shape) - len(self.shape)) + list(self.strides)
+        # detect which position is 1
+        for idx, pos in enumerate(new_strides):
+            if shape_with_the_same_length[idx] == 1:
+                new_strides[idx] = 0
+
+        return self.make(
+            new_shape,
+            strides=tuple(new_strides),
+            device=self._device,
+            handle=self._handle,
+            offset=self._offset,
+        )
         ### END YOUR SOLUTION
 
     ### Get and set elements
@@ -361,7 +404,27 @@ class NDArray:
         assert len(idxs) == self.ndim, "Need indexes equal to number of dimensions"
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_shape = list(self.shape)
+        new_strides = list(self.strides)
+        new_offset = self._offset
+        for i, s in enumerate(idxs):
+            new_offset += self.strides[i] * s.start
+            # Note: we need to add s.step - 1 here
+            # slice(0, 7, 2) = [0, 2, 4, 6]
+            # if we use 7 // 2, we will get 3, that's not expected result
+            # see: https://stackoverflow.com/questions/36188429/retrieve-length-of-slice-from-slice-object-in-python
+            new_shape[i] = (
+                s.stop - s.start + s.step - (1 if s.step > 0 else -1)
+            ) // s.step
+            new_strides[i] *= s.step
+
+        return self.make(
+            tuple(new_shape),
+            strides=tuple(new_strides),
+            device=self._device,
+            handle=self._handle,
+            offset=new_offset,
+        )
         ### END YOUR SOLUTION
 
     def __setitem__(self, idxs, other):

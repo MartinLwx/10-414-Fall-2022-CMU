@@ -49,7 +49,7 @@ def test_cifar10_loader(batch_size, train, device):
         "data/cifar-10-batches-py", train=True
     )
     train_loader = ndl.data.DataLoader(cifar10_train_dataset, batch_size)
-    for (X, y) in train_loader:
+    for X, y in train_loader:
         break
     assert isinstance(X.cached_data, nd.NDArray)
     assert isinstance(X, ndl.Tensor)
@@ -109,9 +109,9 @@ def submit_cifar10():
     for train in TRAIN:
         dataset = ndl.data.CIFAR10Dataset("data/cifar-10-batches-py", train=train)
         mugrade_submit(len(dataset))
-        for (device, batch_size) in itertools.product(devices, TEST_BATCH_SIZES):
+        for device, batch_size in itertools.product(devices, TEST_BATCH_SIZES):
             loader = ndl.data.DataLoader(dataset, batch_size)
-            for (X, y) in loader:
+            for X, y in loader:
                 break
             mugrade_submit(X.numpy()[0, :, :, :])
             mugrade_submit(y.numpy()[0])
@@ -124,7 +124,7 @@ def submit_ptb():
     corpus = ndl.data.Corpus("data/ptb")
     mugrade_submit(np.array(len(corpus.dictionary)))
     for train in TRAIN:
-        for (device, batch_size, bptt) in itertools.product(
+        for device, batch_size, bptt in itertools.product(
             devices, TEST_BATCH_SIZES, TEST_BPTT
         ):
             if train:

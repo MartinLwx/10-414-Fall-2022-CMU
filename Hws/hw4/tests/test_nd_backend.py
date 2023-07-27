@@ -304,7 +304,7 @@ def submit_new_nd_backend():
         print("You need a GPU to run some of these tests.")
 
     # ewise fn
-    for (device, shape, fn_name) in itertools.product(
+    for device, shape, fn_name in itertools.product(
         devices, TEST_GENERAL_SHAPES, EWISE_OP_NAMES
     ):
         _A = np.random.randn(*shape).astype(np.float32)
@@ -314,7 +314,7 @@ def submit_new_nd_backend():
         mugrade_submit(EWISE_OPS[fn_name](A, B).numpy())
 
     # scalar fn
-    for (device, shape, fn_name) in itertools.product(
+    for device, shape, fn_name in itertools.product(
         devices, TEST_GENERAL_SHAPES, SCALAR_OP_NAMES
     ):
         _A = np.random.randn(*shape).astype(np.float32)
@@ -323,7 +323,7 @@ def submit_new_nd_backend():
         mugrade_submit(EWISE_OPS[fn_name](A, _B).numpy())
 
     # matmul
-    for (device, matmul_dim) in itertools.product(devices, TEST_MATMUL_DIMS):
+    for device, matmul_dim in itertools.product(devices, TEST_MATMUL_DIMS):
         m, n, p = matmul_dim
         _A = np.random.randn(m, n).astype(np.float32)
         _B = np.random.randn(n, p).astype(np.float32)
@@ -332,33 +332,33 @@ def submit_new_nd_backend():
         mugrade_submit((A @ B).numpy())
 
     # power
-    for (device, shape) in itertools.product(devices, TEST_GENERAL_SHAPES):
+    for device, shape in itertools.product(devices, TEST_GENERAL_SHAPES):
         _A = np.random.randn(*shape).astype(np.float32)
         _B = np.random.randint(1)
         A = ndl.Tensor(nd.array(_A), device=device)
         mugrade_submit((A**_B).numpy())
 
     # log
-    for (device, shape) in itertools.product(devices, TEST_GENERAL_SHAPES):
+    for device, shape in itertools.product(devices, TEST_GENERAL_SHAPES):
         _A = np.random.randn(*shape).astype(np.float32) + 5.0
         A = ndl.Tensor(nd.array(_A), device=device)
         mugrade_submit(ndl.log(A).numpy())
 
     # exp
-    for (device, shape) in itertools.product(devices, TEST_GENERAL_SHAPES):
+    for device, shape in itertools.product(devices, TEST_GENERAL_SHAPES):
         _A = np.random.randn(*shape).astype(np.float32)
         A = ndl.Tensor(nd.array(_A), device=device)
         mugrade_submit(ndl.exp(A).numpy())
 
     # tanh
-    for (device, shape) in itertools.product(devices, TEST_GENERAL_SHAPES):
+    for device, shape in itertools.product(devices, TEST_GENERAL_SHAPES):
         _A = np.random.randn(*shape).astype(np.float32)
         A = ndl.Tensor(nd.array(_A), device=device)
         mugrade_submit(ndl.tanh(A).numpy())
         mugrade_submit(backward_check(ndl.tanh, A))
 
     # stack
-    for (device, (shape, axis, l)) in itertools.product(devices, TEST_STACK_PARAMETERS):
+    for device, (shape, axis, l) in itertools.product(devices, TEST_STACK_PARAMETERS):
         _A = [np.random.randn(*shape).astype(np.float32) for i in range(l)]
         A = [ndl.Tensor(nd.array(_A[i]), device=device) for i in range(l)]
         out = ndl.stack(A, axis=axis)
@@ -367,30 +367,26 @@ def submit_new_nd_backend():
         mugrade_submit(A[0].grad.numpy())
 
     # summation
-    for (device, (shape, axes)) in itertools.product(
-        devices, TEST_SUMMATION_PARAMETERS
-    ):
+    for device, (shape, axes) in itertools.product(devices, TEST_SUMMATION_PARAMETERS):
         _A = np.random.randn(*shape).astype(np.float32)
         A = ndl.Tensor(nd.array(_A), device=device)
         mugrade_submit(ndl.summation(A, axes).numpy())
         mugrade_submit(backward_check(ndl.summation, A, axes=axes))
 
     # broadcast
-    for (device, (shape, shape_to)) in itertools.product(
-        devices, TEST_BROADCAST_SHAPES
-    ):
+    for device, (shape, shape_to) in itertools.product(devices, TEST_BROADCAST_SHAPES):
         _A = np.random.randn(*shape).astype(np.float32)
         A = ndl.Tensor(nd.array(_A), device=device)
         mugrade_submit(ndl.broadcast_to(A, shape_to).numpy())
 
     # reshape
-    for (device, (shape, shape_to)) in itertools.product(devices, TEST_RESHAPE_SHAPES):
+    for device, (shape, shape_to) in itertools.product(devices, TEST_RESHAPE_SHAPES):
         _A = np.random.randn(*shape).astype(np.float32)
         A = ndl.Tensor(nd.array(_A), device=device)
         mugrade_submit(ndl.reshape(A, shape_to).numpy())
 
     # transpose
-    for (device, shape, axes) in itertools.product(
+    for device, shape, axes in itertools.product(
         devices, TEST_TRANSPOSE_SHAPES, TEST_TRANSPOSE_AXES
     ):
         _A = np.random.randn(*shape).astype(np.float32)
@@ -398,9 +394,7 @@ def submit_new_nd_backend():
         mugrade_submit(ndl.transpose(A, axes=axes).numpy())
 
     # logsumexp
-    for (device, (shape, axes)) in itertools.product(
-        devices, TEST_LOGSUMEXP_PARAMETERS
-    ):
+    for device, (shape, axes) in itertools.product(devices, TEST_LOGSUMEXP_PARAMETERS):
         _A = np.random.randn(*shape).astype(np.float32)
         A = ndl.Tensor(nd.array(_A), device=device)
         mugrade_submit(ndl.logsumexp(A, axes).numpy())
