@@ -309,14 +309,17 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        for new, old in zip(self.shape, new_shape):
-            if new != 1:
+        shape_with_the_same_length = (
+            tuple([1] * (len(new_shape) - len(self.shape))) + self.shape
+        )
+        for old, new in zip(shape_with_the_same_length, new_shape):
+            if old != 1:
                 assert new == old
 
-        new_strides = list(self.strides)
+        new_strides = [0] * (len(new_shape) - len(self.shape)) + list(self.strides)
         # detect which position is 1
         for idx, pos in enumerate(new_strides):
-            if self.shape[idx] == 1:
+            if shape_with_the_same_length[idx] == 1:
                 new_strides[idx] = 0
 
         return self.make(
