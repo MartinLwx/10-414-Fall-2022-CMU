@@ -635,7 +635,21 @@ class NDArray:
         Note: compact() before returning.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # note that the flip won't change self.shape
+        new_strides = list(self.strides)
+        new_offset = self._offset
+        for axis in axes:
+            new_strides[axis] *= -1  # make the stride negative
+            # try to imagine a (3 x 3) matrix, flip(axis=0) will make the offset become (3 - 1) * 3 = 6
+            new_offset += (self.shape[axis] - 1) * self.strides[axis]
+
+        return self.make(
+            self.shape,
+            strides=tuple(new_strides),
+            device=self.device,
+            handle=self._handle,
+            offset=new_offset,
+        ).compact()
         ### END YOUR SOLUTION
 
     def pad(self, axes):
@@ -645,7 +659,17 @@ class NDArray:
         axes = ( (0, 0), (1, 1), (0, 0)) pads the middle axis with a 0 on the left and right side.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        new_shape = tuple(
+            self.shape[i] + axes[i][0] + axes[i][1] for i in range(len(axes))
+        )
+        out = full(new_shape, 0, device=self.device)
+        indices = []
+        for i in range(len(self.shape)):
+            indices.append(slice(axes[i][0], axes[i][0] + self.shape[i], 1))
+        out[tuple(indices)] = self
+
+        return out
+
         ### END YOUR SOLUTION
 
 

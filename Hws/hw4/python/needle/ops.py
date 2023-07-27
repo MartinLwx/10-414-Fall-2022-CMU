@@ -568,12 +568,12 @@ class Flip(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return array_api.flip(a, self.axes)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return flip(out_grad, self.axes)
         ### END YOUR SOLUTION
 
 
@@ -588,12 +588,31 @@ class Dilate(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # consider an axis with size m. After dilation
+        # , the size would be m * dilation + m = m * (dilation + 1)
+        new_shape = list(a.shape)
+        for axis in self.axes:
+            new_shape[axis] = a.shape[axis] * (self.dilation + 1)
+        res = array_api.empty(new_shape, device=a.device, dtype=a.dtype)
+        res.fill(0)  # or you will get random number
+        # now we need to copy the values from a to res
+        # i.e. res[...] = a
+        # decide each slice object in each axis
+        indices = []
+        for axis in range(len(new_shape)):
+            if axis in self.axes:
+                # that is, we need to change the slice here
+                indices.append(slice(0, new_shape[axis], self.dilation + 1))
+            else:
+                indices.append(slice(0, new_shape[axis], 1))  # compact
+
+        res[tuple(indices)] = a
+        return res
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return undilate(out_grad, self.axes, self.dilation)
         ### END YOUR SOLUTION
 
 
@@ -608,12 +627,28 @@ class UnDilate(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # recall the relationship: shape_before * (dilation + 1) = shape_after
+        origin_shape = list(a.shape)
+        for axis in self.axes:
+            origin_shape[axis] = a.shape[axis] // (self.dilation + 1)
+
+        indices = []
+        for axis in range(len(a.shape)):
+            if axis in self.axes:
+                indices.append(slice(0, a.shape[axis], self.dilation + 1))
+            else:
+                indices.append(
+                    slice(0, a.shape[axis], 1)
+                )  # no dilate happen in this axis
+
+        res = a[tuple(indices)].compact().reshape(origin_shape)
+
+        return res
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return dilation(out_grad, self.axes, self.dilation)
         ### END YOUR SOLUTION
 
 

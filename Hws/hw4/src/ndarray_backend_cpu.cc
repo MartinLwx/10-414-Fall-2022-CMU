@@ -42,7 +42,7 @@ void Fill(AlignedArray *out, scalar_t val) {
 }
 
 void Compact(const AlignedArray &a, AlignedArray *out,
-             std::vector<uint32_t> shape, std::vector<uint32_t> strides,
+             std::vector<int32_t> shape, std::vector<int32_t> strides,
              size_t offset) {
   /**
    * Compact an array in memory
@@ -65,7 +65,8 @@ void Compact(const AlignedArray &a, AlignedArray *out,
   auto cnt{0};
   while (cnt != out->size) {
     // compute the offset
-    auto all_offset{offset};
+    // the strides[i] may be negative in hw4
+    int all_offset = offset;
     for (int i = 0; i < indices.size(); i++) {
       all_offset += strides[i] * indices[i];
     }
@@ -89,7 +90,7 @@ void Compact(const AlignedArray &a, AlignedArray *out,
 }
 
 void EwiseSetitem(const AlignedArray &a, AlignedArray *out,
-                  std::vector<uint32_t> shape, std::vector<uint32_t> strides,
+                  std::vector<int32_t> shape, std::vector<int32_t> strides,
                   size_t offset) {
   /**
    * Set items in a (non-compact) array
@@ -107,7 +108,8 @@ void EwiseSetitem(const AlignedArray &a, AlignedArray *out,
   auto cnt{0};
   while (cnt != a.size) {
     // compute the offset
-    auto all_offset{offset};
+    // the strides[i] may be negative in hw4
+    int all_offset = offset;
     for (int i = 0; i < indices.size(); i++) {
       all_offset += strides[i] * indices[i];
     }
@@ -131,7 +133,7 @@ void EwiseSetitem(const AlignedArray &a, AlignedArray *out,
 }
 
 void ScalarSetitem(const size_t size, scalar_t val, AlignedArray *out,
-                   std::vector<uint32_t> shape, std::vector<uint32_t> strides,
+                   std::vector<int32_t> shape, std::vector<int32_t> strides,
                    size_t offset) {
   /**
    * Set items is a (non-compact) array
@@ -150,7 +152,8 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray *out,
   auto cnt{0};
   while (cnt != size) {
     // compute the offset
-    auto all_offset{offset};
+    // the strides[i] may be negative in hw4
+    int all_offset = offset;
     for (int i = 0; i < indices.size(); i++) {
       all_offset += strides[i] * indices[i];
     }

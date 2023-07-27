@@ -14,6 +14,7 @@ namespace cuda {
 #define TILE 4
 typedef float scalar_t;
 const size_t ELEM_SIZE = sizeof(scalar_t);
+typedef ssize_t ptrdiff_t;
 
 struct CudaArray {
   CudaArray(const size_t size) {
@@ -47,10 +48,10 @@ CudaDims CudaOneDim(size_t size) {
 #define MAX_VEC_SIZE 8
 struct CudaVec {
   uint32_t size;
-  uint32_t data[MAX_VEC_SIZE];
+  int32_t data[MAX_VEC_SIZE];
 };
 
-CudaVec VecToCuda(const std::vector<uint32_t> &x) {
+CudaVec VecToCuda(const std::vector<int32_t> &x) {
   CudaVec shape;
   if (x.size() > MAX_VEC_SIZE)
     throw std::runtime_error("Exceeded CUDA supported max dimesions");
@@ -98,7 +99,7 @@ __global__ void CompactKernel(const scalar_t *a, scalar_t *out, size_t size,
    * passing to CUDA kernel) strides: vector of strides of a array offset:
    * offset of out array
    */
-  size_t gid = blockIdx.x * blockDim.x + threadIdx.x; // unique thread id
+  ssize_t gid = blockIdx.x * blockDim.x + threadIdx.x; // unique thread id
 
   /// BEGIN YOUR SOLUTION
   // how to map gid --> all_offset?
@@ -118,8 +119,8 @@ __global__ void CompactKernel(const scalar_t *a, scalar_t *out, size_t size,
   /// END YOUR SOLUTION
 }
 
-void Compact(const CudaArray &a, CudaArray *out, std::vector<uint32_t> shape,
-             std::vector<uint32_t> strides, size_t offset) {
+void Compact(const CudaArray &a, CudaArray *out, std::vector<int32_t> shape,
+             std::vector<int32_t> strides, size_t offset) {
   /**
    * Compact an array in memory.  Unlike the C++ version, in CUDA this will
    * primarily call the relevant CUDA kernel.  In this case, we illustrate how
@@ -162,7 +163,7 @@ __global__ void EwiseSetitemKernel(const scalar_t *a, scalar_t *out,
 }
 
 void EwiseSetitem(const CudaArray &a, CudaArray *out,
-                  std::vector<uint32_t> shape, std::vector<uint32_t> strides,
+                  std::vector<int32_t> shape, std::vector<int32_t> strides,
                   size_t offset) {
   /**
    * Set items in a (non-compact) array using CUDA. You will most likely want to
@@ -203,7 +204,7 @@ __global__ void ScalarSetitemKernel(scalar_t val, size_t size, scalar_t *out,
 }
 
 void ScalarSetitem(size_t size, scalar_t val, CudaArray *out,
-                   std::vector<uint32_t> shape, std::vector<uint32_t> strides,
+                   std::vector<int32_t> shape, std::vector<int32_t> strides,
                    size_t offset) {
   /**
    * Set items is a (non-compact) array
