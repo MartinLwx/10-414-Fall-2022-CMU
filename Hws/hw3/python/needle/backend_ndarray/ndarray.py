@@ -242,7 +242,18 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        if prod(new_shape) != prod(self.shape) or not self.is_compact():
+        new_shape = list(new_shape)
+        t = [i for i in new_shape if i != -1]
+        if len(t) != len(new_shape):
+            # caes 1. there may exist -1 in the new_shape
+            if prod(self.shape) % prod(t) != 0:
+                raise ValueError()
+            new_shape[new_shape.index(-1)] = prod(self.shape) // prod(t)
+        else:
+            # case 2. there is no -1 in the new_shape
+            if prod(new_shape) != prod(self.shape):
+                raise ValueError()
+        if not self.is_compact():
             raise ValueError()
 
         # compute the new strides array
@@ -251,7 +262,7 @@ class NDArray:
         new_strides = [prod(new_shape[i:]) for i in range(1, len(new_shape))] + [1]
 
         return self.make(
-            new_shape,
+            tuple(new_shape),
             strides=tuple(new_strides),
             device=self.device,
             handle=self._handle,
