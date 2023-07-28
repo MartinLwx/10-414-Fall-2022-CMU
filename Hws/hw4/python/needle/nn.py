@@ -144,7 +144,9 @@ class Sigmoid(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        out = ops.exp(-x)
+        one = init.ones_like(out)
+        return one / (one + out)
         ### END YOUR SOLUTION
 
 
@@ -565,7 +567,32 @@ class LSTMCell(Module):
         """
         super().__init__()
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.bias = bias
+        configs = {
+            "device": device,
+            "dtype": dtype,
+            "requires_grad": True,
+        }
+
+        a = (1 / hidden_size) ** 0.5
+        self.W_ih = Parameter(
+            init.rand(input_size, 4 * hidden_size, low=-a, high=a, **configs)
+        )
+        self.W_hh = Parameter(
+            init.rand(hidden_size, 4 * hidden_size, low=-a, high=a, **configs)
+        )
+        if bias:
+            self.bias_ih = Parameter(
+                init.rand(4 * hidden_size, low=-a, high=a, **configs)
+            )
+            self.bias_hh = Parameter(
+                init.rand(4 * hidden_size, low=-a, high=a, **configs)
+            )
+
+        self.sigmoid = Sigmoid()
+        self.tanh = Tanh()
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -585,7 +612,46 @@ class LSTMCell(Module):
             element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        bs, input_size = X.shape
+        if h is None:
+            h0 = init.zeros(bs, self.hidden_size, device=X.device, dtype=X.dtype)
+            c0 = init.zeros(bs, self.hidden_size, device=X.device, dtype=X.dtype)
+        else:
+            h0, c0 = h
+
+        if self.bias:
+            res = ops.split(
+                X @ self.W_ih
+                + h0 @ self.W_hh
+                + ops.broadcast_to(
+                    ops.reshape(self.bias_ih, (1, 4 * self.hidden_size)),
+                    (bs, 4 * self.hidden_size),
+                )
+                + ops.broadcast_to(
+                    ops.reshape(self.bias_hh, (1, 4 * self.hidden_size)),
+                    (bs, 4 * self.hidden_size),
+                ),
+                1,
+            )
+        else:
+            res = ops.split(
+                X @ self.W_ih + h0 @ self.W_hh,
+                1,
+            )
+        gap = len(res) // 4
+        i, f, g, o = (
+            ops.stack([res[i] for i in range(gap)], 1),
+            ops.stack([res[i] for i in range(gap, 2 * gap)], 1),
+            ops.stack([res[i] for i in range(2 * gap, 3 * gap)], 1),
+            ops.stack([res[i] for i in range(3 * gap, len(res))], 1),
+        )
+        # i, f, g, o: (bs, hidden_size)
+        i, f, g, o = self.sigmoid(i), self.sigmoid(f), self.tanh(g), self.sigmoid(o)
+        c_out = f * c0 + i * g
+        h_out = o * self.tanh(c_out)
+
+        return h_out, c_out
+        # shape before splitting - (bs, 4 * hidden_size)
         ### END YOUR SOLUTION
 
 
@@ -621,7 +687,14 @@ class LSTM(Module):
             of shape (4*hidden_size,).
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.bias = bias
+        self.lstm_cells = [
+            LSTMCell(input_size, hidden_size, bias, device, dtype)
+            for _ in range(num_layers)
+        ]
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -639,10 +712,39 @@ class LSTM(Module):
             (h_t) from the last layer of the LSTM, for each t.
         tuple of (h_n, c_n) with
             h_n of shape (num_layers, bs, hidden_size) containing the final hidden state for each element in the batch.
-            h_n of shape (num_layers, bs, hidden_size) containing the final hidden cell state for each element in the batch.
+            c_n of shape (num_layers, bs, hidden_size) containing the final hidden cell state for each element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        seq_len, bs, _ = X.shape
+        if h is None:
+            h0 = init.zeros(
+                self.num_layers, bs, self.hidden_size, device=X.device, dtype=X.dtype
+            )
+            c0 = init.zeros(
+                self.num_layers, bs, self.hidden_size, device=X.device, dtype=X.dtype
+            )
+        else:
+            h0, c0 = h
+
+        h_n, c_n = [], []
+        hidden_states = ops.split(h0, 0)  # (bs, hidden_size)
+        cell_states = ops.split(c0, 0)
+
+        for i in range(self.num_layers):
+            # BPTT
+            input_states = ops.split(X, 0)  # (bs, input_size)
+            h_temp, c_temp = [], []
+            h0, c0 = hidden_states[i], cell_states[i]
+            for t in range(seq_len):
+                h0, c0 = self.lstm_cells[i](input_states[t], (h0, c0))
+                h_temp.append(h0)
+                c_temp.append(c0)
+                if t == seq_len - 1:
+                    h_n.append(h0)
+                    c_n.append(c0)
+            X = ops.stack(h_temp, 0)  # (seq_len, bs, input_size)
+
+        return X, (ops.stack(h_n, 0), ops.stack(c_n, 0))
         ### END YOUR SOLUTION
 
 
