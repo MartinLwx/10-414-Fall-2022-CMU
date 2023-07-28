@@ -134,7 +134,7 @@ class ReLU(Module):
 class Tanh(Module):
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return ops.tanh(x)
         ### END YOUR SOLUTION
 
 
@@ -388,8 +388,35 @@ class RNNCell(Module):
         Weights and biases are initialized from U(-sqrt(k), sqrt(k)) where k = 1/hidden_size
         """
         super().__init__()
+
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.bias = bias
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.nonlinearity = nonlinearity
+        configs = {
+            "device": device,
+            "dtype": dtype,
+            "requires_grad": True,
+        }
+        a = (1 / hidden_size) ** 0.5
+
+        self.W_ih = Parameter(
+            init.rand(input_size, hidden_size, low=-a, high=a, **configs)
+        )
+        self.W_hh = Parameter(
+            init.rand(hidden_size, hidden_size, low=-a, high=a, **configs)
+        )
+        if bias:
+            self.bias_hh = Parameter(init.rand(hidden_size, low=-a, high=a, **configs))
+            self.bias_hh = Parameter(init.rand(hidden_size, low=-a, high=a, **configs))
+
+        if nonlinearity == "tanh":
+            self.activation_fn = Tanh()
+        elif nonlinearity == "relu":
+            self.activation_fn = ReLU()
+        else:
+            raise ValueError("Not support")
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -400,11 +427,30 @@ class RNNCell(Module):
             for each element in the batch. Defaults to zero if not provided.
 
         Outputs:
-        h' of shape (bs, hidden_size): Tensor contianing the next hidden state
+        h' of shape (bs, hidden_size): Tensor containing the next hidden state
             for each element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        bs = X.shape[0]
+        if h is None:
+            h = init.zeros(bs, self.hidden_size, device=X.device, dtype=X.dtype)
+
+        if self.bias:
+            out = (
+                X @ self.W_ih
+                + h @ self.W_hh
+                + self.bias_hh.reshape((1, self.hidden_size)).broadcast_to(
+                    (bs, self.hidden_size)
+                )
+                + self.bias_ih.reshape((1, self.hidden_size)).broadcast_to(
+                    (bs, self.hidden_size)
+                )
+            )
+        else:
+            out = X @ self.W_ih + h @ self.W_hh
+
+        out = self.activation_fn(out)
+        return out
         ### END YOUR SOLUTION
 
 
@@ -442,7 +488,16 @@ class RNN(Module):
         """
         super().__init__()
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.nonlinearity = nonlinearity
+        self.bias = bias
+        self.rnn_cells = []
+        for _ in range(num_layers):
+            self.rnn_cells.append(
+                RNNCell(input_size, hidden_size, bias, nonlinearity, device, dtype)
+            )
         ### END YOUR SOLUTION
 
     def forward(self, X, h0=None):
@@ -458,7 +513,33 @@ class RNN(Module):
         h_n of shape (num_layers, bs, hidden_size) containing the final hidden state for each element in the batch.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        # BPTT
+        seq_len, bs, input_size = X.shape
+        if h0 is None:
+            h0 = init.zeros(
+                self.num_layers, bs, self.hidden_size, device=X.device, dtype=X.dtype
+            )
+        h_n = []
+
+        hidden_states = ops.split(h0, 0)
+        # each one: (bs, hidden_size)
+
+        for i in range(self.num_layers):
+            temp = []
+            h = hidden_states[i]
+            input_states = ops.split(X, 0)
+            # each_one: (bs, input_size)
+            for t in range(seq_len):
+                h = self.rnn_cells[i](input_states[t], h)
+                # h: (bs, hidden_size)
+                temp.append(h)
+                # collect last hidden state in this layer
+                if t == seq_len - 1:
+                    h_n.append(h)
+            X = ops.stack(temp, 0)
+            # the input X^l of the l-th layers is the hidden states from last layer
+            # X: (seq_len, bs, input_size)
+        return X, ops.stack(h_n, 0)
         ### END YOUR SOLUTION
 
 

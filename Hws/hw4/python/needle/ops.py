@@ -404,9 +404,9 @@ class ReLU(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        input = node.inputs[0]
-        cached_data = input.realize_cached_data()
-        return out_grad * Tensor(cached_data > 0)
+        a = node.inputs[0]
+        out = out_grad * Tensor(node.inputs[0].numpy() > 0, device=out_grad.device,dtype=out_grad.dtype)
+        return out
         ### END YOUR SOLUTION
 
 
