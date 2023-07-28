@@ -86,7 +86,12 @@ def kaiming_uniform(fan_in, fan_out, shape=None, nonlinearity="relu", **kwargs):
     assert nonlinearity == "relu", "Only relu supported currently"
     ### BEGIN YOUR SOLUTION
     a = math.sqrt(2) * math.sqrt(3 / fan_in)
-    return rand(fan_in * fan_out, low=-a, high=a, **kwargs).reshape((fan_in, fan_out))
+    if shape:
+        return rand(*shape, low=-a, high=a, **kwargs).reshape(shape)
+    else:
+        return rand(fan_in * fan_out, low=-a, high=a, **kwargs).reshape(
+            (fan_in, fan_out)
+        )
     ### END YOUR SOLUTION
 
 

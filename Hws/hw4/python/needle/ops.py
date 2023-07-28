@@ -278,7 +278,26 @@ class Summation(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return a.sum(self.axes)
+        if not self.axes or len(self.axes) == 1:
+            return a.sum(self.axes)
+        else:
+            # do summation in each axis in axes and finnaly reshape to the target shape
+            # note that we may also use -1 as axis
+            target_shape = []
+            for idx, axis in enumerate(a.shape):
+                if idx in self.axes:
+                    continue
+                if axis < 0:
+                    axis += len(a.shape)
+                target_shape.append(axis)
+            target_shape = tuple(target_shape)
+            # note that the target_shape may be empty
+
+            for axis in self.axes:
+                a = a.sum(axis, keepdims=True)
+
+            return a.reshape(target_shape) if target_shape else a.reshape((1,))
+
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -663,12 +682,77 @@ class Conv(TensorOp):
 
     def compute(self, A, B):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if self.padding != 0:
+            A = A.pad(
+                (
+                    (0, 0),
+                    (self.padding, self.padding),
+                    (self.padding, self.padding),
+                    (0, 0),
+                )
+            )
+            # A: N * (H + pad * 2) * (W + pad * 2) * C
+        N, H, W, Cin = A.shape
+        K, _, _, Cout = B.shape
+        Ns, Hs, Ws, Cs = A.strides
+
+        inner_dim = K * K * Cin
+        H_out = (H - K) // self.stride + 1
+        W_out = (W - K) // self.stride + 1
+
+        A = A.as_strided(
+            shape=(N, H_out, W_out, K, K, Cin),
+            strides=(Ns, self.stride * Hs, self.stride * Ws, Hs, Ws, Cs),
+        ).compact()
+
+        A = A.reshape((-1, inner_dim))
+        B = B.compact().reshape((-1, Cout))
+        res = A @ B
+
+        return res.compact().reshape((N, H_out, W_out, Cout))
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        X, Weight = node.inputs
+        N, H, W, Cin = X.shape
+        K, _, _, Cout = Weight.shape
+        #  X: N * H *  W  * Cin
+        #  W: K * K * Cin * Cout
+        #  out_grad: N * ((H + 2 * pad - K)//stride + 1) * ((W + 2 * pad - K)//stride + 1) * Cout
+
+        if self.stride > 1:
+            # dilation: before - m
+            #           after  - m * (dilation + 1)
+            #           so we pass self.stride - 1 here
+            out_grad = dilate(out_grad, (1, 2), self.stride - 1)
+
+        Weight_after = flip(Weight, (0, 1)).transpose((-2, -1))
+        # Weight_after: K * K * Cout * Cin
+
+        X_grad = conv(out_grad, Weight_after, padding=(K - self.padding - 1))
+        # out_grad: N * ((H + 2 * pad - K)//stride + 1) * ((W + 2 * pad - K)//stride + 1) * Cout
+        # , the output: N * [((H + 2 * pad - K)//stride + 1) + 2 * new_pad - K)//new_stride + 1]
+        #                 * [((W + 2 * pad - K)//stride + 1) + 2 * new_pad - K)//new_stride + 1]
+        #                 * Cin
+        # goal: N * H * W * Cin
+        # trivial: if stride = new_stride == 1 ---> new_pad = K - pad - 1
+        # by the hints, we need to use dilation on out_grad
+        # dilation and stride are opposite, that is, we can use dilation to cancle stride
+
+        X_after = X.transpose((0, 3))
+        # X_after: Cin * H * W * N
+        out_grad_after = out_grad.transpose((0, 1)).transpose((1, 2))
+        # out_grad_after: ((H + 2 * pad - K)//stride + 1) * ((W + 2 * pad - K)//stride + 1) * N * Cout
+        W_grad = conv(X_after, out_grad_after, padding=self.padding)
+        W_grad = W_grad.transpose((0, 1)).transpose((1, 2))
+        # the output: Cin * [(H + 2 * new_pad - ( (H + 2 * pad - K)//stride + 1 ))//new_stride + 1]
+        #                 * [(W + 2 * new_pad - ( (W + 2 * pad - K)//stride + 1 ))//new_stride + 1]
+        #                 * Cout
+        # goal: K * K * Cin * Cout
+        # trivial: stride = new_stride == 1 ---> new_pad = pad
+
+        return X_grad, W_grad
         ### END YOUR SOLUTION
 
 
