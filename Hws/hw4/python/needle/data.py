@@ -218,9 +218,9 @@ class CIFAR10Dataset(Dataset):
         for file in files:
             data = unpickle(file)
             self.X.append(data[b"data"])
-            self.y.append(data[b"labels"])  # list
+            self.y.extend(data[b"labels"])  # list
         self.X = (np.array(self.X) / 255).reshape((-1, 3, 32, 32))
-        self.y = (np.array(self.y)).reshape((-1, 1))
+        self.y = np.array(self.y)
 
         ### END YOUR SOLUTION
 
@@ -275,7 +275,12 @@ class Dictionary(object):
         Returns the word's unique ID.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if word not in self.word2idx:
+            self.word2idx[word] = len(self.word2idx)
+            self.idx2word.append(word)
+            return len(self.word2idx) - 1
+        else:
+            return self.word2idx[word]
         ### END YOUR SOLUTION
 
     def __len__(self):
@@ -283,7 +288,7 @@ class Dictionary(object):
         Returns the number of unique words in the dictionary.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return len(self.word2idx)
         ### END YOUR SOLUTION
 
 
@@ -310,7 +315,29 @@ class Corpus(object):
         ids: List of ids
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        with open(path, "r") as f:
+            txt = f.readlines()
+
+        res = []
+        self.dictionary.add_word("<eos>")
+
+        if max_lines is None:
+            for line in txt:
+                tmp = []
+                for word in line.strip().split(" "):
+                    identity = self.dictionary.add_word(word)
+                    tmp.append(identity)
+                res.append(tmp)
+        else:
+            for idx in range(max_lines):
+                line = txt[idx]
+                tmp = []
+                for word in line.strip().split(" "):
+                    identity = self.dictionary.add_word(word)
+                    tmp.append(identity)
+                res.append(tmp)
+
+        return res
         ### END YOUR SOLUTION
 
 
@@ -325,13 +352,20 @@ def batchify(data, batch_size, device, dtype):
     │ e k q w │
     └ f l r x ┘.
     These columns are treated as independent by the model, which means that the
-    dependence of e. g. 'g' on 'f' cannot be learned, but allows more efficient
+    dependence of e.g. 'g' on 'f' cannot be learned, but allows more efficient
     batch processing.
     If the data cannot be evenly divided by the batch size, trim off the remainder.
     Returns the data as a numpy array of shape (nbatch, batch_size).
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    data = np.array([item for sublist in data for item in sublist]).ravel()
+    remainder = len(data) % batch_size
+    if remainder != 0:
+        data = data[:-remainder]
+
+    nbatch = len(data) // batch_size
+
+    return data.reshape((nbatch, batch_size))
     ### END YOUR SOLUTION
 
 
@@ -346,14 +380,25 @@ def get_batch(batches, i, bptt, device=None, dtype=None):
     done along the batch dimension (i.e. dimension 1), since that was handled
     by the batchify function. The chunks are along dimension 0, corresponding
     to the seq_len dimension in the LSTM or RNN.
-    Inputs:
+
+    Inputs
+    ------
     batches - numpy array returned from batchify function
     i - index
     bptt - Sequence length
-    Returns:
+
+    Returns
+    -------
     data - Tensor of shape (bptt, bs) with cached data as NDArray
     target - Tensor of shape (bptt*bs,) with cached data as NDArray
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    # batches: (nbatch, batch_size)
+    data = batches[i : i + bptt]
+    target = batches[i + 1 : i + bptt + 1].ravel()
+    configs = {
+        "device": device,
+        "dtype": dtype,
+    }
+    return Tensor(data, **configs), Tensor(target, **configs)
     ### END YOUR SOLUTION

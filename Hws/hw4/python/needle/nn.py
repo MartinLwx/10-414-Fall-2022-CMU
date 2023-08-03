@@ -109,18 +109,18 @@ class Linear(Module):
     def forward(self, X: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
         if self.has_bias:
-            return x @ self.weight + self.bias.broadcast_to(
-                (x.shape[0], self.out_features)
+            return X @ self.weight + self.bias.broadcast_to(
+                (X.shape[0], self.out_features)
             )
         else:
-            return x @ self.weight
+            return X @ self.weight
         ### END YOUR SOLUTION
 
 
 class Flatten(Module):
     def forward(self, X):
         ### BEGIN YOUR SOLUTION
-        return X.compact().reshape((X.shape[0], -1))
+        return X.reshape((X.shape[0], -1))
         ### END YOUR SOLUTION
 
 
@@ -169,10 +169,10 @@ class SoftmaxLoss(Module):
         ### BEGIN YOUR SOLUTION
         # Note: y is a list of numbers
         batch_size, num_classes = logits.shape
-        labels = init.one_hot(num_classes, y)
-        out = ops.logsumexp(logits, -1)
+        labels = init.one_hot(num_classes, y, device=logits.device, dtype=logits.dtype)
+        out = ops.logsumexp(logits, 1)
 
-        return (out - ops.summation(logits * labels, -1)).sum() / batch_size
+        return (out - ops.summation(logits * labels, 1)).sum() / batch_size
         ### END YOUR SOLUTION
 
 
@@ -331,7 +331,12 @@ class Conv(Module):
         # weight_shape: (K, K, Cin, Cout)
         weight_shape = (kernel_size, kernel_size, in_channels, out_channels)
         self.weight = Parameter(
-            init.kaiming_uniform(in_channels, out_channels, weight_shape, **configs)
+            init.kaiming_uniform(
+                in_channels * kernel_size * kernel_size,
+                out_channels * kernel_size * kernel_size,
+                weight_shape,
+                **configs,
+            )
         )
 
         if bias:
@@ -410,7 +415,7 @@ class RNNCell(Module):
             init.rand(hidden_size, hidden_size, low=-a, high=a, **configs)
         )
         if bias:
-            self.bias_hh = Parameter(init.rand(hidden_size, low=-a, high=a, **configs))
+            self.bias_ih = Parameter(init.rand(hidden_size, low=-a, high=a, **configs))
             self.bias_hh = Parameter(init.rand(hidden_size, low=-a, high=a, **configs))
 
         if nonlinearity == "tanh":
@@ -436,7 +441,6 @@ class RNNCell(Module):
         bs = X.shape[0]
         if h is None:
             h = init.zeros(bs, self.hidden_size, device=X.device, dtype=X.dtype)
-
         if self.bias:
             out = (
                 X @ self.W_ih
@@ -496,10 +500,15 @@ class RNN(Module):
         self.nonlinearity = nonlinearity
         self.bias = bias
         self.rnn_cells = []
-        for _ in range(num_layers):
-            self.rnn_cells.append(
-                RNNCell(input_size, hidden_size, bias, nonlinearity, device, dtype)
-            )
+        for i in range(num_layers):
+            if i == 0:
+                self.rnn_cells.append(
+                    RNNCell(input_size, hidden_size, bias, nonlinearity, device, dtype)
+                )
+            else:
+                self.rnn_cells.append(
+                    RNNCell(hidden_size, hidden_size, bias, nonlinearity, device, dtype)
+                )
         ### END YOUR SOLUTION
 
     def forward(self, X, h0=None):
@@ -525,7 +534,6 @@ class RNN(Module):
 
         hidden_states = ops.split(h0, 0)
         # each one: (bs, hidden_size)
-
         for i in range(self.num_layers):
             temp = []
             h = hidden_states[i]
@@ -691,10 +699,17 @@ class LSTM(Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.bias = bias
-        self.lstm_cells = [
-            LSTMCell(input_size, hidden_size, bias, device, dtype)
-            for _ in range(num_layers)
-        ]
+        self.lstm_cells = []
+        for i in range(num_layers):
+            if i == 0:
+                self.lstm_cells.append(
+                    LSTMCell(input_size, hidden_size, bias, device, dtype)
+                )
+            else:
+                self.lstm_cells.append(
+                    LSTMCell(hidden_size, hidden_size, bias, device, dtype)
+                )
+
         ### END YOUR SOLUTION
 
     def forward(self, X, h=None):
@@ -763,7 +778,16 @@ class Embedding(Module):
             initialized from N(0, 1).
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        configs = {
+            "requires_grad": True,
+            "device": device,
+            "dtype": dtype,
+        }
+        self.weight = Parameter(
+            init.randn(num_embeddings, embedding_dim, mean=0, std=1, **configs)
+        )
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
@@ -777,5 +801,10 @@ class Embedding(Module):
         output of shape (seq_len, bs, embedding_dim)
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        seq_len, bs = x.shape
+        x = init.one_hot(
+            self.num_embeddings, x, device=x.device, dtype=x.dtype
+        ).reshape((seq_len * bs, -1))
+
+        return (x @ self.weight).reshape((seq_len, bs, -1))
         ### END YOUR SOLUTION
