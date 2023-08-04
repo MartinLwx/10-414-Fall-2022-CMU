@@ -31,7 +31,22 @@ def epoch_general_cifar10(dataloader, model, loss_fn=nn.SoftmaxLoss(), opt=None)
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    if opt is not None:
+        model.train()
+    else:
+        model.eval()
+    records: list[np.ndarray] = []
+    total_acc = 0.0
+    for X, y in dataloader:
+        logits = model(X)
+        loss = loss_fn(logits, y)
+        if opt is not None:
+            loss.backward()
+            opt.step()
+        records.append(loss.cached_data)
+        total_acc += (logits.numpy().argmax(-1) == y.numpy()).sum()
+
+    return total_acc / len(dataloader.dataset), np.array(records).mean()
     ### END YOUR SOLUTION
 
 
@@ -62,7 +77,14 @@ def train_cifar10(
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    criterion = loss_fn()
+    optimizer = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
+    for epoch in range(n_epochs):
+        train_avg_acc, train_avg_loss = epoch_general_cifar10(
+            dataloader, model, criterion, optimizer
+        )
+
+    return train_avg_acc, train_avg_loss
     ### END YOUR SOLUTION
 
 
@@ -81,7 +103,7 @@ def evaluate_cifar10(model, dataloader, loss_fn=nn.SoftmaxLoss):
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    return epoch_general_cifar10(dataloader, model, loss_fn, opt=None)
     ### END YOUR SOLUTION
 
 
@@ -115,8 +137,41 @@ def epoch_general_ptb(
         avg_loss: average loss over dataset
     """
     np.random.seed(4)
+
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    if opt is not None:
+        model.train()
+    else:
+        model.eval()
+
+    nbatch, _ = data.shape
+    total_acc, total_loss = 0.0, 0.0
+    cnt = 0
+    h = None
+    for i in range(0, nbatch, seq_len):
+        # construct the batch data
+        batch, target = ndl.data.get_batch(data, i, seq_len, device, dtype)
+        # data - Tensor of shape (bptt, bs) with cached data as NDArray
+        # target - Tensor of shape (bptt*bs, ) with cached data as NDArray
+
+        output, h = model(batch, h)
+        # output: (seq_len*bs, output_size)
+        # h: (num_layers, bs, hidden_size) if using RNN
+        # h: a tuple of (h0, c0), each of shape (num_layers, bs, hidden_size) if using LSTM
+
+        loss = loss_fn(output, target)
+
+        total_loss += loss.numpy() * batch.shape[1]
+
+        if opt is not None:
+            loss.backward()
+            opt.step()
+
+        total_acc += (target.numpy() == output.numpy().argmax(-1)).sum()
+        cnt += batch.shape[1]
+
+    return total_acc / cnt, total_loss.sum() / cnt
+
     ### END YOUR SOLUTION
 
 
@@ -152,8 +207,25 @@ def train_ptb(
         avg_loss: average loss over dataset from last epoch of training
     """
     np.random.seed(4)
+
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    criterion = loss_fn()
+    optimizer = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
+    avg_acc, avg_loss = 0.0, 0.0
+    for epoch in range(n_epochs):
+        avg_acc, avg_loss = epoch_general_ptb(
+            data,
+            model,
+            seq_len,
+            criterion,
+            opt=optimizer,
+            clip=clip,
+            device=device,
+            dtype=dtype,
+        )
+
+    return avg_acc, avg_loss
+
     ### END YOUR SOLUTION
 
 
@@ -175,7 +247,9 @@ def evaluate_ptb(
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    return epoch_general_ptb(
+        data, model, seq_len, loss_fn(), opt=None, device=device, dtype=dtype
+    )
     ### END YOUR SOLUTION
 
 

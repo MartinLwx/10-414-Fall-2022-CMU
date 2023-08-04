@@ -394,11 +394,11 @@ def get_batch(batches, i, bptt, device=None, dtype=None):
     """
     ### BEGIN YOUR SOLUTION
     # batches: (nbatch, batch_size)
-    data = batches[i : i + bptt]
-    target = batches[i + 1 : i + bptt + 1].ravel()
+    target = batches[i + 1 : i + bptt + 1]
+    data = batches[i : i + target.shape[0]]
     configs = {
         "device": device,
         "dtype": dtype,
     }
-    return Tensor(data, **configs), Tensor(target, **configs)
+    return Tensor(data, **configs), Tensor(target.ravel(), **configs)
     ### END YOUR SOLUTION
