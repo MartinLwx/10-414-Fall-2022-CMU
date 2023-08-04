@@ -117,7 +117,7 @@ class Value:
         *,
         num_outputs: int = 1,
         cached_data: List[object] = None,
-        requires_grad: Optional[bool] = None
+        requires_grad: Optional[bool] = None,
     ):
         global TENSOR_COUNTER
         TENSOR_COUNTER += 1
@@ -203,7 +203,7 @@ class Tensor(Value):
         device: Optional[Device] = None,
         dtype="float32",
         requires_grad=True,
-        **kwargs
+        **kwargs,
     ):
         if isinstance(array, Tensor):
             if device is None:
@@ -393,7 +393,6 @@ def compute_gradient_of_variables(output_tensor, out_grad):
             else:
                 cur_sum += t
         node.grad = cur_sum
-
         # get the partial adjoint value for all inputs
         if node.op:
             grads = node.op.gradient_as_tuple(node.grad, node)

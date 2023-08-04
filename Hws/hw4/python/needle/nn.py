@@ -98,18 +98,15 @@ class Linear(Module):
             init.kaiming_uniform(in_features, out_features, **configs)
         )
         if bias:
-            self.bias = Parameter(
-                init.kaiming_uniform(out_features, 1, **configs).reshape(
-                    (1, out_features)
-                )
-            )
+            self.bias = Parameter(init.kaiming_uniform(out_features, 1, **configs))
 
         ### END YOUR SOLUTION
 
     def forward(self, X: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
+        bs, _ = X.shape
         if self.has_bias:
-            return X @ self.weight + self.bias.broadcast_to(
+            return X @ self.weight + ops.reshape(self.bias, (1, -1)).broadcast_to(
                 (X.shape[0], self.out_features)
             )
         else:

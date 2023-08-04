@@ -278,7 +278,7 @@ class Summation(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        if not self.axes or len(self.axes) == 1:
+        if not self.axes or not isinstance(self.axes, (tuple, list)):
             return a.sum(self.axes)
         else:
             # do summation in each axis in axes and finnaly reshape to the target shape
@@ -313,7 +313,10 @@ class Summation(TensorOp):
         else:
             target_shape[self.axes] = 1
 
-        return broadcast_to(reshape(out_grad, target_shape), input_shape)
+        out = broadcast_to(reshape(out_grad, target_shape), input_shape)
+        assert out.shape == input_shape
+
+        return out
         ### END YOUR SOLUTION
 
 
@@ -340,6 +343,9 @@ class MatMul(TensorOp):
         if len(b_grad.shape) > len(b.shape):
             b_grad = summation(b_grad, tuple(range(len(b_grad.shape) - len(b.shape))))
 
+        assert (
+            a_grad.shape == a.shape and b_grad.shape == b.shape
+        ), f"{a_grad.shape} != {a.shape} or {b_grad.shape} != {b.shape}"
         return a_grad, b_grad
         ### END YOUR SOLUTION
 
@@ -405,7 +411,11 @@ class ReLU(TensorOp):
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
         a = node.inputs[0]
-        out = out_grad * Tensor(node.inputs[0].numpy() > 0, device=out_grad.device,dtype=out_grad.dtype)
+        out = out_grad * Tensor(
+            node.inputs[0].numpy() > 0, device=out_grad.device, dtype=out_grad.dtype
+        )
+        assert out.shape == a.shape
+
         return out
         ### END YOUR SOLUTION
 
@@ -444,7 +454,9 @@ class LogSumExp(TensorOp):
         # 1. compute the partial derivative - softmax(Z - Z_max)
         # see: https://en.wikipedia.org/wiki/LogSumExp, we just substitute x with Z-Z_MAX
         Z = node.inputs[0]
-        Z_max = Tensor(array_api.max(Z.cached_data, self.axes, keepdims=True))
+        Z_max = Tensor(
+            Z.cached_data.max(self.axes, keepdims=True), device=Z.device, dtype=Z.dtype
+        ).broadcast_to(Z.shape)
         up = exp(Z - Z_max)
         down = summation(up, self.axes)
 
@@ -467,7 +479,10 @@ class LogSumExp(TensorOp):
             )
             down = broadcast_to(down.reshape(shape_with_the_same_length), input_shape)
 
-        return out_grad * (up / down)
+        out = out_grad * (up / down)
+        assert out.shape == Z.shape
+
+        return out
         ### END YOUR SOLUTION
 
 
@@ -631,7 +646,10 @@ class Dilate(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        return undilate(out_grad, self.axes, self.dilation)
+        out = undilate(out_grad, self.axes, self.dilation)
+        assert out.shape == node.inputs[0].shape
+
+        return out
         ### END YOUR SOLUTION
 
 
@@ -667,7 +685,10 @@ class UnDilate(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        return dilation(out_grad, self.axes, self.dilation)
+        out = dilate(out_grad, self.axes, self.dilation)
+        assert out.shape == node.inputs[0].shape
+
+        return out
         ### END YOUR SOLUTION
 
 
@@ -752,6 +773,7 @@ class Conv(TensorOp):
         # goal: K * K * Cin * Cout
         # trivial: stride = new_stride == 1 ---> new_pad = pad
 
+        assert X_grad.shape == X.shape and W_grad.shape == Weight.shape
         return X_grad, W_grad
         ### END YOUR SOLUTION
 
