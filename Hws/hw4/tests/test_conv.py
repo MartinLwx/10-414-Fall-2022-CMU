@@ -602,12 +602,13 @@ def one_iter_of_cifar10_training(
         out = model(X)
         correct += np.sum(np.argmax(out.numpy(), axis=1) == y.numpy())
         loss = loss_fn(out, y)
-        total_loss += loss.data.numpy() * y.shape[0]
+        total_loss += float(loss.data.numpy()) * y.shape[0]
         loss.backward()
         opt.step()
         if i >= niter:
             break
         i += 1
+
     return correct / (y.shape[0] * niter), total_loss / (y.shape[0] * niter)
 
 
