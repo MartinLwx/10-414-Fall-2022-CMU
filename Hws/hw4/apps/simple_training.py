@@ -5,6 +5,7 @@ import needle as ndl
 import needle.nn as nn
 from needle import backend_ndarray as nd
 from models import *
+from tqdm import tqdm
 import time
 
 device = ndl.cpu()
@@ -37,16 +38,20 @@ def epoch_general_cifar10(dataloader, model, loss_fn=nn.SoftmaxLoss(), opt=None)
         model.eval()
     records: list[np.ndarray] = []
     total_acc = 0.0
-    for X, y in dataloader:
+    iterations = len(dataloader.dataset) // dataloader.batch_size
+    pbar = tqdm(dataloader, total=iterations)
+    for X, y in pbar:
+        X, y = ndl.Tensor(X, device=device), ndl.Tensor(y, device=device)
         logits = model(X)
         loss = loss_fn(logits, y)
         if opt is not None:
             loss.backward()
             opt.step()
-        records.append(loss.cached_data)
+        records.append(float(loss.numpy()))
         total_acc += (logits.numpy().argmax(-1) == y.numpy()).sum()
+        pbar.set_postfix(loss=sum(records) / len(records))
 
-    return total_acc / len(dataloader.dataset), np.array(records).mean()
+    return total_acc / len(dataloader.dataset), sum(records) / len(records)
     ### END YOUR SOLUTION
 
 
@@ -103,7 +108,7 @@ def evaluate_cifar10(model, dataloader, loss_fn=nn.SoftmaxLoss):
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    return epoch_general_cifar10(dataloader, model, loss_fn, opt=None)
+    return epoch_general_cifar10(dataloader, model, loss_fn(), opt=None)
     ### END YOUR SOLUTION
 
 
@@ -148,7 +153,8 @@ def epoch_general_ptb(
     total_acc, total_loss = 0.0, 0.0
     cnt = 0
     h = None
-    for i in range(0, nbatch, seq_len):
+    pbar = tqdm(range(0, nbatch, seq_len), total=nbatch // seq_len)
+    for i in pbar:
         # construct the batch data
         batch, target = ndl.data.get_batch(data, i, seq_len, device, dtype)
         # data - Tensor of shape (bptt, bs) with cached data as NDArray
@@ -158,6 +164,11 @@ def epoch_general_ptb(
         # output: (seq_len*bs, output_size)
         # h: (num_layers, bs, hidden_size) if using RNN
         # h: a tuple of (h0, c0), each of shape (num_layers, bs, hidden_size) if using LSTM
+
+        if isinstance(h, tuple):
+            h = (h[0].detach(), h[1].detach())
+        else:
+            h = h.detach()
 
         loss = loss_fn(output, target)
 
@@ -169,6 +180,7 @@ def epoch_general_ptb(
 
         total_acc += (target.numpy() == output.numpy().argmax(-1)).sum()
         cnt += batch.shape[1]
+        pbar.set_postfix(loss=total_loss.sum() / cnt)
 
     return total_acc / cnt, total_loss.sum() / cnt
 

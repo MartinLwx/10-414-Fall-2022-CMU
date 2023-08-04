@@ -469,7 +469,9 @@ class NDArray:
         """
         out = NDArray.make(self.shape, device=self.device)
         if isinstance(other, NDArray):
-            assert self.shape == other.shape, f"operation needs two equal-sized arrays, {self.shape} != {other.shape}"
+            assert (
+                self.shape == other.shape
+            ), f"operation needs two equal-sized arrays, {self.shape} != {other.shape}"
             ewise_func(self.compact()._handle, other.compact()._handle, out._handle)
         else:
             scalar_func(self.compact()._handle, other, out._handle)

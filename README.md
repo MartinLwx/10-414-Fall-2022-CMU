@@ -15,7 +15,7 @@ All slides and ipynbs can be found on this website: <https://dlsyscourse.org/lec
 - [x] [Homework 1](./Hws/hw1/)
 - [x] [Homework 2](./Hws/hw2/)
 - [x] [Homework 3](./Hws/hw3/)
-- [ ] [Homework 4](./Hws/hw4/)
+- [x] [Homework 4](./Hws/hw4/)
 
 
 ## Interested in other CS courses?
